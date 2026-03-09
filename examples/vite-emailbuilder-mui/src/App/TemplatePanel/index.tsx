@@ -11,6 +11,7 @@ import {
   useSelectedMainTab,
   useSelectedScreenSize,
 } from '../../documents/editor/EditorContext';
+import { canEditCurrentTemplate } from '../../documents/editor/templateApi';
 import ToggleInspectorPanelButton from '../InspectorDrawer/ToggleInspectorPanelButton';
 
 import DownloadJson from './DownloadJson';
@@ -24,6 +25,7 @@ export default function TemplatePanel() {
   const document = useDocument();
   const selectedMainTab = useSelectedMainTab();
   const selectedScreenSize = useSelectedScreenSize();
+  const canEdit = canEditCurrentTemplate();
 
   let mainBoxSx: SxProps = {
     height: '100%',
@@ -51,6 +53,14 @@ export default function TemplatePanel() {
   };
 
   const renderMainPanel = () => {
+    if (!canEdit) {
+      return (
+        <Box sx={mainBoxSx}>
+          <Reader document={document} rootBlockId="root" />
+        </Box>
+      );
+    }
+
     switch (selectedMainTab) {
       case 'editor':
         return (
@@ -89,13 +99,17 @@ export default function TemplatePanel() {
         alignItems="center"
       >
         <Stack px={2} direction="row" gap={2} width="100%" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" spacing={2} alignItems="center">
-            <MainTabsGroup />
-            <SaveTemplate />
-          </Stack>
+          {canEdit ? (
+            <Stack direction="row" spacing={2} alignItems="center">
+              <MainTabsGroup />
+              <SaveTemplate />
+            </Stack>
+          ) : (
+            <Box />
+          )}
           <Stack direction="row" spacing={2}>
-            <DownloadJson />
-            <ImportJson />
+            {canEdit && <DownloadJson />}
+            {canEdit && <ImportJson />}
             <ToggleButtonGroup value={selectedScreenSize} exclusive size="small" onChange={handleScreenSizeChange}>
               <ToggleButton value="desktop">
                 <Tooltip title="Desktop view">
@@ -110,7 +124,7 @@ export default function TemplatePanel() {
             </ToggleButtonGroup>
           </Stack>
         </Stack>
-        <ToggleInspectorPanelButton />
+        {canEdit && <ToggleInspectorPanelButton />}
       </Stack>
       <Box sx={{ height: 'calc(100vh - 49px)', overflow: 'auto', minWidth: 370 }}>{renderMainPanel()}</Box>
     </>

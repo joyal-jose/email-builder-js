@@ -8,6 +8,7 @@ import {
   useIsLoadingTemplate,
   useLoadTemplateError,
 } from '../documents/editor/EditorContext';
+import { canEditCurrentTemplate } from '../documents/editor/templateApi';
 
 import InspectorDrawer, { INSPECTOR_DRAWER_WIDTH } from './InspectorDrawer';
 import TemplatePanel from './TemplatePanel';
@@ -21,6 +22,7 @@ function useDrawerTransition(cssProperty: 'margin-left' | 'margin-right', open: 
 }
 
 export default function App() {
+  const canEdit = canEditCurrentTemplate();
   const inspectorDrawerOpen = useInspectorDrawerOpen();
   const isLoadingTemplate = useIsLoadingTemplate();
   const loadTemplateError = useLoadTemplateError();
@@ -33,11 +35,11 @@ export default function App() {
 
   return (
     <>
-      <InspectorDrawer />
+      {canEdit && !isLoadingTemplate && <InspectorDrawer />}
 
       <Stack
         sx={{
-          marginRight: inspectorDrawerOpen ? `${INSPECTOR_DRAWER_WIDTH}px` : 0,
+          marginRight: canEdit && !isLoadingTemplate && inspectorDrawerOpen ? `${INSPECTOR_DRAWER_WIDTH}px` : 0,
           transition: marginRightTransition,
         }}
       >
