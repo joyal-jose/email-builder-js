@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ZodError } from 'zod';
 
 import {
@@ -6,8 +6,9 @@ import {
   VerticalAlignCenterOutlined,
   VerticalAlignTopOutlined,
 } from '@mui/icons-material';
-import { Stack, ToggleButton } from '@mui/material';
+import { Button, Stack, ToggleButton, Typography } from '@mui/material';
 import { ImageProps, ImagePropsSchema } from '@usewaypoint/block-image';
+import { uploadImageFile } from '../../../../documents/editor/templateApi';
 
 import BaseSidebarPanel from './helpers/BaseSidebarPanel';
 import RadioGroupInput from './helpers/inputs/RadioGroupInput';
@@ -21,6 +22,9 @@ type ImageSidebarPanelProps = {
 };
 export default function ImageSidebarPanel({ data, setData }: ImageSidebarPanelProps) {
   const [, setErrors] = useState<ZodError | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const updateData = (d: unknown) => {
     const res = ImagePropsSchema.safeParse(d);
@@ -32,8 +36,46 @@ export default function ImageSidebarPanel({ data, setData }: ImageSidebarPanelPr
     }
   };
 
+  const handleFileSelect: React.ChangeEventHandler<HTMLInputElement> = async (ev) => {
+    const file = ev.currentTarget.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const publicUrl = await uploadImageFile(file);
+      updateData({ ...data, props: { ...data.props, url: publicUrl } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upload image';
+      setUploadError(message);
+    } finally {
+      setUploading(false);
+      ev.currentTarget.value = '';
+    }
+  };
+
   return (
     <BaseSidebarPanel title="Image block">
+      <Stack spacing={1}>
+        <Button type="button" variant="outlined" size="small" onClick={() => fileInputRef.current?.click()}>
+          {uploading ? 'Uploading...' : 'Upload image'}
+        </Button>
+        <input
+          ref={fileInputRef}
+          hidden
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+          onChange={handleFileSelect}
+        />
+        {uploadError && (
+          <Typography variant="caption" color="error.main">
+            {uploadError}
+          </Typography>
+        )}
+      </Stack>
+
       <TextInput
         label="Source URL"
         defaultValue={data.props?.url ?? ''}

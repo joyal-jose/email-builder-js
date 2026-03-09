@@ -20,6 +20,20 @@ type TEasyGoTemplateResponse = {
     blocks?: unknown;
     template_code?: unknown;
 };
+type TUploadSignedUrlResponse = {
+    uploadUrl?: string;
+    publicUrl?: string;
+    url?: string;
+    fileUrl?: string;
+    key?: string;
+    result?: {
+        uploadUrl?: string;
+        publicUrl?: string;
+        url?: string;
+        fileUrl?: string;
+        key?: string;
+    };
+};
 
 type TExternalTemplateContext = {
     templateId: string;
@@ -112,6 +126,23 @@ function assertLocalApiUrl() {
         throw new Error('Missing VITE_TEMPLATE_API_URL in environment variables.');
     }
     return LOCAL_TEMPLATE_API_URL;
+}
+
+function pickUploadResponsePayload(payload: TUploadSignedUrlResponse) {
+    return payload.result ?? payload;
+}
+
+function ensureTrailingSlash(url: string) {
+    return url.endsWith('/') ? url : `${url}/`;
+}
+
+function resolveApiBaseFromTemplateApiUrl(url: string) {
+    const templatePathMarker = '/events/tickets/template';
+    const markerIndex = url.indexOf(templatePathMarker);
+    if (markerIndex >= 0) {
+        return ensureTrailingSlash(url.slice(0, markerIndex));
+    }
+    return ensureTrailingSlash(url);
 }
 
 function readTemplateIdFromSearchParams() {
@@ -250,7 +281,8 @@ async function updateExternalTemplate(
         },
         body: JSON.stringify({
             blocks: document,
-            template_code: html,
+            template_code: document,
+            html,
         }),
     });
 
@@ -303,6 +335,13 @@ async function saveLocalTemplate(document: TEditorConfiguration, html: string) {
     if (!response.ok) {
         throw new HttpError(response.status, `Template save failed with status ${response.status}`);
     }
+}
+
+async function ensureExternalAuth(context: TExternalTemplateContext) {
+    if (!externalAuthState) {
+        externalAuthState = await requestExternalAuth(context);
+    }
+    return externalAuthState;
 }
 
 export function isExternalMode() {
@@ -377,4 +416,58 @@ export async function saveCurrentTemplate(document: TEditorConfiguration, html: 
         auth: externalAuthState,
         document,
     });
+}
+
+export async function uploadImageFile(file: File) {
+    const context = readExternalTemplateContext();
+    let signedUrlEndpoint = '';
+    let authToken: string | null = null;
+
+    if (context) {
+        const auth = await ensureExternalAuth(context);
+        signedUrlEndpoint = `${ensureTrailingSlash(auth.apiBaseUrl)}events/tickets/template/upload/presign`;
+        authToken = auth.token;
+    } else {
+        signedUrlEndpoint = `${resolveApiBaseFromTemplateApiUrl(assertLocalApiUrl())}events/tickets/template/upload/presign`;
+    }
+
+    const signedUrlResponse = await fetch(signedUrlEndpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type || 'application/octet-stream',
+        }),
+    });
+
+    if (!signedUrlResponse.ok) {
+        throw new Error(`Signed URL generation failed with status ${signedUrlResponse.status}`);
+    }
+
+    const signedUrlPayload = (await signedUrlResponse.json()) as TUploadSignedUrlResponse;
+    const signedUrlData = pickUploadResponsePayload(signedUrlPayload);
+    const uploadUrl = signedUrlData.uploadUrl;
+    const publicUrl = signedUrlData.publicUrl ?? signedUrlData.url ?? signedUrlData.fileUrl;
+
+    if (!uploadUrl || !publicUrl) {
+        throw new Error('Signed URL response is missing uploadUrl or publicUrl');
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+        },
+        body: file,
+    });
+
+    if (!uploadResponse.ok) {
+        throw new Error(`File upload failed with status ${uploadResponse.status}`);
+    }
+
+    return publicUrl;
 }
