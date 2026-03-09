@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 
-import getConfiguration from '../../getConfiguration';
+import EMPTY_EMAIL_MESSAGE from '../../getConfiguration/sample/empty-email-message';
 
 import { TEditorConfiguration } from './core';
+import { fetchTemplateFromApi } from './templateApi';
 
 type TValue = {
   document: TEditorConfiguration;
@@ -13,18 +14,16 @@ type TValue = {
   selectedScreenSize: 'desktop' | 'mobile';
 
   inspectorDrawerOpen: boolean;
-  samplesDrawerOpen: boolean;
 };
 
 const editorStateStore = create<TValue>(() => ({
-  document: getConfiguration(window.location.hash),
+  document: EMPTY_EMAIL_MESSAGE,
   selectedBlockId: null,
   selectedSidebarTab: 'styles',
   selectedMainTab: 'editor',
   selectedScreenSize: 'desktop',
 
   inspectorDrawerOpen: true,
-  samplesDrawerOpen: true,
 }));
 
 export function useDocument() {
@@ -53,10 +52,6 @@ export function useSelectedSidebarTab() {
 
 export function useInspectorDrawerOpen() {
   return editorStateStore((s) => s.inspectorDrawerOpen);
-}
-
-export function useSamplesDrawerOpen() {
-  return editorStateStore((s) => s.samplesDrawerOpen);
 }
 
 export function setSelectedBlockId(selectedBlockId: TValue['selectedBlockId']) {
@@ -99,11 +94,11 @@ export function toggleInspectorDrawerOpen() {
   return editorStateStore.setState({ inspectorDrawerOpen });
 }
 
-export function toggleSamplesDrawerOpen() {
-  const samplesDrawerOpen = !editorStateStore.getState().samplesDrawerOpen;
-  return editorStateStore.setState({ samplesDrawerOpen });
-}
-
 export function setSelectedScreenSize(selectedScreenSize: TValue['selectedScreenSize']) {
   return editorStateStore.setState({ selectedScreenSize });
+}
+
+export async function loadDocumentFromApi() {
+  const document = await fetchTemplateFromApi();
+  return resetDocument(document);
 }

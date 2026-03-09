@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 import {
   Alert,
@@ -22,12 +22,33 @@ type ImportJsonDialogProps = {
 export default function ImportJsonDialog({ onClose }: ImportJsonDialogProps) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleChange: React.ChangeEventHandler<HTMLTextAreaElement | HTMLInputElement> = (ev) => {
     const v = ev.currentTarget.value;
     setValue(v);
     const { error } = validateJsonStringValue(v);
     setError(error ?? null);
+  };
+
+  const handleSelectFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = async (ev) => {
+    const file = ev.currentTarget.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const fileContents = await file.text();
+    setValue(fileContents);
+
+    const validationResult = validateJsonStringValue(fileContents);
+    setError(validationResult.error ?? null);
+
+    // Allow re-selecting the same file.
+    ev.currentTarget.value = '';
   };
 
   let errorAlert = null;
@@ -62,6 +83,16 @@ export default function ImportJsonDialog({ onClose }: ImportJsonDialogProps) {
             </Link>
             ).
           </Typography>
+          <Button type="button" onClick={handleSelectFile} sx={{ mb: 2 }}>
+            Choose JSON file
+          </Button>
+          <input
+            ref={fileInputRef}
+            hidden
+            type="file"
+            accept="application/json,.json"
+            onChange={handleFileChange}
+          />
           {errorAlert}
           <TextField
             error={error !== null}
