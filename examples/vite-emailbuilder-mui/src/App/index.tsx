@@ -1,8 +1,13 @@
 import React, { useEffect } from 'react';
 
-import { Stack, useTheme } from '@mui/material';
+import { Box, CircularProgress, Stack, Typography, useTheme } from '@mui/material';
 
-import { loadDocumentFromApi, useInspectorDrawerOpen } from '../documents/editor/EditorContext';
+import {
+  loadDocumentFromApi,
+  useInspectorDrawerOpen,
+  useIsLoadingTemplate,
+  useLoadTemplateError,
+} from '../documents/editor/EditorContext';
 
 import InspectorDrawer, { INSPECTOR_DRAWER_WIDTH } from './InspectorDrawer';
 import TemplatePanel from './TemplatePanel';
@@ -17,6 +22,8 @@ function useDrawerTransition(cssProperty: 'margin-left' | 'margin-right', open: 
 
 export default function App() {
   const inspectorDrawerOpen = useInspectorDrawerOpen();
+  const isLoadingTemplate = useIsLoadingTemplate();
+  const loadTemplateError = useLoadTemplateError();
   const marginRightTransition = useDrawerTransition('margin-right', inspectorDrawerOpen);
   useEffect(() => {
     loadDocumentFromApi().catch((error) => {
@@ -34,7 +41,39 @@ export default function App() {
           transition: marginRightTransition,
         }}
       >
-        <TemplatePanel />
+        {isLoadingTemplate ? (
+          <Box
+            sx={{
+              height: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
+            <CircularProgress size={28} />
+            <Typography variant="body2" color="text.secondary">
+              Loading template...
+            </Typography>
+          </Box>
+        ) : loadTemplateError ? (
+          <Box
+            sx={{
+              height: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              px: 3,
+            }}
+          >
+            <Typography variant="body2" color="error.main">
+              {loadTemplateError}
+            </Typography>
+          </Box>
+        ) : (
+          <TemplatePanel />
+        )}
       </Stack>
     </>
   );

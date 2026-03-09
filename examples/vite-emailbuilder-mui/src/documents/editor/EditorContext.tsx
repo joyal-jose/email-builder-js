@@ -3,10 +3,12 @@ import { create } from 'zustand';
 import EMPTY_EMAIL_MESSAGE from '../../getConfiguration/sample/empty-email-message';
 
 import { TEditorConfiguration } from './core';
-import { fetchTemplateFromApi } from './templateApi';
+import { loadInitialTemplate } from './templateApi';
 
 type TValue = {
   document: TEditorConfiguration;
+  isLoadingTemplate: boolean;
+  loadTemplateError: string | null;
 
   selectedBlockId: string | null;
   selectedSidebarTab: 'block-configuration' | 'styles';
@@ -18,6 +20,8 @@ type TValue = {
 
 const editorStateStore = create<TValue>(() => ({
   document: EMPTY_EMAIL_MESSAGE,
+  isLoadingTemplate: true,
+  loadTemplateError: null,
   selectedBlockId: null,
   selectedSidebarTab: 'styles',
   selectedMainTab: 'editor',
@@ -28,6 +32,14 @@ const editorStateStore = create<TValue>(() => ({
 
 export function useDocument() {
   return editorStateStore((s) => s.document);
+}
+
+export function useIsLoadingTemplate() {
+  return editorStateStore((s) => s.isLoadingTemplate);
+}
+
+export function useLoadTemplateError() {
+  return editorStateStore((s) => s.loadTemplateError);
 }
 
 export function useSelectedBlockId() {
@@ -99,6 +111,16 @@ export function setSelectedScreenSize(selectedScreenSize: TValue['selectedScreen
 }
 
 export async function loadDocumentFromApi() {
-  const document = await fetchTemplateFromApi();
-  return resetDocument(document);
+  editorStateStore.setState({ isLoadingTemplate: true, loadTemplateError: null });
+  try {
+    const document = await loadInitialTemplate();
+    resetDocument(document);
+    editorStateStore.setState({ isLoadingTemplate: false, loadTemplateError: null });
+  } catch (error) {
+    editorStateStore.setState({
+      isLoadingTemplate: false,
+      loadTemplateError: error instanceof Error ? error.message : 'Failed to load template',
+    });
+    throw error;
+  }
 }

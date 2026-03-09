@@ -5,18 +5,21 @@ import { Button, Stack, Typography } from '@mui/material';
 import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 
 import { useDocument } from '../../documents/editor/EditorContext';
-import { saveTemplateToApi } from '../../documents/editor/templateApi';
+import { canEditCurrentTemplate, saveCurrentTemplate } from '../../documents/editor/templateApi';
 
 export default function SaveTemplate() {
   const document = useDocument();
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  console.log('status: ', status);
   const htmlCode = useMemo(() => renderToStaticMarkup(document, { rootBlockId: 'root' }), [document]);
+  const canEdit = canEditCurrentTemplate();
 
   const handleSaveTemplate = async () => {
+    if (!canEdit) {
+      return;
+    }
     setStatus('saving');
     try {
-      await saveTemplateToApi(document, htmlCode);
+      await saveCurrentTemplate(document, htmlCode);
       setStatus('saved');
     } catch {
       setStatus('error');
@@ -30,7 +33,7 @@ export default function SaveTemplate() {
         size="small"
         startIcon={<SaveOutlined fontSize="small" />}
         onClick={handleSaveTemplate}
-        disabled={status === 'saving'}
+        disabled={!canEdit || status === 'saving'}
         sx={{
           textTransform: 'none',
           fontWeight: 600,
@@ -52,6 +55,11 @@ export default function SaveTemplate() {
       >
         {status === 'saving' ? 'Saving...' : 'Save Template'}
       </Button>
+      {!canEdit && (
+        <Typography variant="caption" color="text.secondary">
+          View only
+        </Typography>
+      )}
       {status === 'saved' && (
         <Typography variant="caption" color="success.main">
           Saved
